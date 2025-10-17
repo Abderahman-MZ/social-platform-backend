@@ -1,6 +1,7 @@
 package com.socialplatform.backend.userservice.controller;
 
-import com.socialplatform.backend.userservice.model.User;
+import com.socialplatform.backend.userservice.dto.UserRegistrationRequest;
+import com.socialplatform.backend.userservice.dto.UserResponse;
 import com.socialplatform.backend.userservice.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -17,12 +18,10 @@ public class SimpleAuthController {
     private UserService userService;
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody User user) {
+    public ResponseEntity<?> register(@RequestBody UserRegistrationRequest request) {
         try {
-            User savedUser = userService.saveUser(user);
-            // Clear password hash from response
-            savedUser.setPasswordHash(null);
-            return ResponseEntity.ok(savedUser);
+            UserResponse userResponse = userService.registerUser(request);
+            return ResponseEntity.ok(userResponse);
         } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", "Registration failed: " + e.getMessage());

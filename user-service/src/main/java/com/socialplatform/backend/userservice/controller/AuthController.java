@@ -1,5 +1,7 @@
 package com.socialplatform.backend.userservice.controller;
 
+import com.socialplatform.backend.userservice.dto.UserRegistrationRequest;
+import com.socialplatform.backend.userservice.dto.UserResponse;
 import com.socialplatform.backend.userservice.model.User;
 import com.socialplatform.backend.userservice.service.JwtService;
 import com.socialplatform.backend.userservice.service.UserService;
@@ -18,12 +20,13 @@ public class AuthController {
     @Autowired
     private JwtService jwtService;
 
-    @PostMapping("/register")
-    public ResponseEntity<User> register(@RequestBody User user) {
-        return ResponseEntity.ok(userService.saveUser(user));
+    @PostMapping("/api/v1/register")
+    public ResponseEntity<UserResponse> register(@RequestBody UserRegistrationRequest request) {
+        UserResponse userResponse = userService.registerUser(request);
+        return ResponseEntity.ok(userResponse);
     }
 
-    @PostMapping("/login")
+    @PostMapping("/api/v1/login")
     public ResponseEntity<Map<String, String>> login(@RequestBody Map<String, String> credentials) {
         String username = credentials.get("username");
         String password = credentials.get("password");
