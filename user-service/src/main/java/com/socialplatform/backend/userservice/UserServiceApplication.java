@@ -1,11 +1,12 @@
-package com.socialplatform;
+package com.socialplatform.backend.userservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class SocialPlatformApplication {
+public class UserServiceApplication {
     public static void main(String[] args) {
-        SpringApplication.run(SocialPlatformApplication.class, args);
+        SpringApplication.run(UserServiceApplication.class, args);
     }
 }
+

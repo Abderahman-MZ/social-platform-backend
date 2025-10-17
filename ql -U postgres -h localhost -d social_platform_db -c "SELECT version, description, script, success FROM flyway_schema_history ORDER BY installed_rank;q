@@ -1,0 +1,7 @@
+ version |      description      |         script          | success 
+---------+-----------------------+-------------------------+---------
+ 0       | << Flyway Baseline >> | << Flyway Baseline >>   | t
+ 1       | initial schema        | V1__initial_schema.sql  | t
+ 2       | add role column       | V2__add_role_column.sql | t
+(3 rows)
+

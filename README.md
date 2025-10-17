@@ -19,3 +19,11 @@ Backend for the social platform, built with Java/Spring Boot, connected to Postg
 ## Contributing
 - Fork, branch (feature/*), submit PR to `main`
 - Requires review by team member
+
+## Database Connection and JPA Setup
+- Configured Spring Data JPA with PostgreSQL for `user-service`
+- Added `User` and `Post` JPA entities with proper annotations
+- Set up Flyway migrations for database versioning
+- Fixed code conflicts and import mismatches
+- Practiced Git merge conflict resolution
+- Committed with professional Git workflows (branch, PR, review)
