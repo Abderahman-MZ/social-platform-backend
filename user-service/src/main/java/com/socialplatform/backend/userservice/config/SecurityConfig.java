@@ -39,14 +39,14 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/user/public").permitAll()
+                .requestMatchers("/register", "/login", "/user/public").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
             .exceptionHandling(exceptions -> exceptions
                 .authenticationEntryPoint((request, response, authException) -> {
-                    logger.warn("Authentication failed for request: {}", request.getRequestURI());
+                    logger.warn("Authentication failed for request: {} {}", 
+                               request.getMethod(), request.getRequestURI());
                     response.setStatus(401);
                     response.setContentType("application/json");
                     response.getWriter().write("{\"error\": \"Authentication required\"}");

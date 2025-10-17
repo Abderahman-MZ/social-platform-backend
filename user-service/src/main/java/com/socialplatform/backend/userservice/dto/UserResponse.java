@@ -17,6 +17,7 @@ public class UserResponse {
         this.createdAt = createdAt;
     }
 
+    // Getters
     public Long getId() { return id; }
     public String getUsername() { return username; }
     public String getEmail() { return email; }

@@ -15,7 +15,7 @@ import java.util.Date;
 public class JwtService {
     private static final Logger logger = LoggerFactory.getLogger(JwtService.class);
     
-    // Use a proper base64 encoded secret key (512-bit for HS512)
+    // Use a proper secret key for HS512 (64 characters for 512-bit)
     private final String SECRET_KEY = "c2VjcmV0LWtleS1mb3Itand0LXNpZ25pbmctbXVzdC1iZS12ZXJ5LWxvbmctYW5kLXNlY3VyZS1hdC1sZWFzdC02NC1jaGFyYWN0ZXJzLWxvbmc=";
     private static final long EXPIRATION_TIME = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -25,12 +25,17 @@ public class JwtService {
 
     public String generateToken(String username) {
         logger.info("Generating JWT for user: {}", username);
-        return Jwts.builder()
-                .setSubject(username)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
-                .compact();
+        try {
+            return Jwts.builder()
+                    .setSubject(username)
+                    .setIssuedAt(new Date())
+                    .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
+                    .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                    .compact();
+        } catch (Exception e) {
+            logger.error("Error generating token: {}", e.getMessage());
+            throw new RuntimeException("Token generation failed", e);
+        }
     }
 
     public boolean validateToken(String token) {
@@ -41,6 +46,12 @@ public class JwtService {
                 .parseClaimsJws(token);
             logger.debug("Token validated successfully");
             return true;
+        } catch (io.jsonwebtoken.ExpiredJwtException e) {
+            logger.warn("JWT token expired: {}", e.getMessage());
+            return false;
+        } catch (io.jsonwebtoken.MalformedJwtException e) {
+            logger.warn("Malformed JWT token: {}", e.getMessage());
+            return false;
         } catch (Exception e) {
             logger.error("Token validation failed: {}", e.getMessage());
             return false;

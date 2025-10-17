@@ -26,15 +26,19 @@ public class UserService {
     private BCryptPasswordEncoder passwordEncoder;
 
     public UserResponse registerUser(UserRegistrationRequest request) {
+        // Check for existing username
         if (userRepository.findByUsername(request.getUsername()).isPresent()) {
             logger.warn("Registration failed: Username {} already exists", request.getUsername());
             throw new IllegalArgumentException("Username already exists");
         }
+        
+        // Check for existing email
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             logger.warn("Registration failed: Email {} already exists", request.getEmail());
             throw new IllegalArgumentException("Email already exists");
         }
 
+        // Create and save new user
         User user = new User();
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
@@ -55,10 +59,11 @@ public class UserService {
 
     public boolean checkPassword(String rawPassword, String encodedPassword) {
         boolean matches = passwordEncoder.matches(rawPassword, encodedPassword);
-        logger.debug("Password check result for {}: {}", rawPassword, matches);
+        logger.debug("Password check result: {}", matches ? "MATCH" : "NO MATCH");
         return matches;
     }
 
+    // Additional methods for user management
     public UserResponse updateUserRole(Long userId, String newRole) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
