@@ -7,26 +7,27 @@ import com.socialplatform.backend.userservice.service.JwtService;
 import com.socialplatform.backend.userservice.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
 @RestController
+@RequestMapping("/user")
 public class AuthController {
+    
     @Autowired
     private UserService userService;
+    
     @Autowired
     private JwtService jwtService;
 
-    @PostMapping("/api/v1/register")
+    @PostMapping("/v1/register")
     public ResponseEntity<UserResponse> register(@RequestBody UserRegistrationRequest request) {
         UserResponse userResponse = userService.registerUser(request);
         return ResponseEntity.ok(userResponse);
     }
 
-    @PostMapping("/api/v1/login")
+    @PostMapping("/v1/login")
     public ResponseEntity<Map<String, String>> login(@RequestBody Map<String, String> credentials) {
         String username = credentials.get("username");
         String password = credentials.get("password");

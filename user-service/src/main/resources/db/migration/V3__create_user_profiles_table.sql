@@ -1,0 +1,8 @@
+CREATE TABLE user_profiles (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id BIGINT NOT NULL,
+    bio VARCHAR(500),
+    profile_picture_url VARCHAR(255),
+    location VARCHAR(100),
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);

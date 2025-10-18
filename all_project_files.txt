@@ -1,0 +1,1364 @@
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: user-service-public
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/users/user/public
+          filters:
+            - StripPrefix=2
+            - AddResponseHeader=X-Gateway-Routed, true
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.requestedTokens: 1
+
+        - id: user-service-register
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/users/register
+          filters:
+            - StripPrefix=2
+            - AddResponseHeader=X-Gateway-Routed, true
+
+        - id: user-service-login
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/users/login
+          filters:
+            - StripPrefix=2
+            - AddResponseHeader=X-Gateway-Routed, true
+
+        - id: user-service-profile
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/users/user/profile
+          filters:
+            - StripPrefix=2
+            - AddResponseHeader=X-Gateway-Routed, true
+
+        - id: user-service-protected
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/users/user/**
+          filters:
+            - StripPrefix=2
+            - AddResponseHeader=X-Gateway-Routed, true
+
+      default-filters:
+        - AddRequestHeader=X-Forwarded-Host, localhost:8080
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+
+  main:
+    web-application-type: reactive
+
+# Actuator endpoints
+management:
+  endpoint:
+    gateway:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,routes
+
+server:
+  port: 8082# H2 In-Memory Database for testing
+spring.datasource.url=jdbc:h2:mem:testdb
+spring.datasource.driverClassName=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=
+
+# JPA Configuration
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+spring.jpa.hibernate.ddl-auto=create-drop
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+
+# H2 Console (access at http://localhost:8081/h2-console)
+spring.h2.console.enabled=true
+
+# Server Configuration
+server.port=8081
+
+# Disable Flyway
+spring.flyway.enabled=false# Database Configuration
+spring.datasource.url=jdbc:postgresql://localhost:5432/social_platform_db
+spring.datasource.username=postgres
+spring.datasource.password=OPen
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# JPA Configuration
+spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.properties.hibernate.format_sql=true
+
+# Flyway Configuration
+spring.flyway.enabled=true
+spring.flyway.url=jdbc:postgresql://localhost:5432/social_platform_db
+spring.flyway.user=postgres
+spring.flyway.password=OPen
+spring.flyway.locations=classpath:db/migration
+spring.flyway.baseline-on-migrate=true
+spring.flyway.validate-on-migrate=true
+
+# Server Configuration
+server.port=8081
+
+# JWT Configuration
+jwt.secret=your-secret-key-change-in-production-with-at-least-256-bits-long-enough-for-hs256
+jwt.expiration=86400000
+
+# Logging
+logging.level.com.socialplatform.backend=DEBUG
+logging.level.org.flywaydb=DEBUGCREATE TABLE users (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'USER',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);CREATE TABLE user_profiles (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id BIGINT NOT NULL,
+    bio VARCHAR(500),
+    profile_picture_url VARCHAR(255),
+    location VARCHAR(100),
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);CREATE TABLE posts (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id BIGINT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);package com.socialplatform.backend.userservice.service;
+
+import com.socialplatform.backend.userservice.dto.UserProfileDTO;
+import com.socialplatform.backend.userservice.model.User;
+import com.socialplatform.backend.userservice.model.UserProfile;
+import com.socialplatform.backend.userservice.repository.UserProfileRepository;
+import com.socialplatform.backend.userservice.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class UserProfileService {
+    
+    @Autowired
+    private UserProfileRepository userProfileRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Transactional
+    public UserProfile createProfile(Long userId, UserProfileDTO profileDTO) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        
+        // Check if profile already exists
+        UserProfile existingProfile = userProfileRepository.findByUserId(userId);
+        if (existingProfile != null) {
+            throw new IllegalArgumentException("Profile already exists for this user");
+        }
+        
+        UserProfile profile = new UserProfile();
+        profile.setUser(user);
+        profile.setBio(profileDTO.getBio());
+        profile.setProfilePictureUrl(profileDTO.getProfilePictureUrl());
+        profile.setLocation(profileDTO.getLocation());
+        
+        return userProfileRepository.save(profile);
+    }
+
+    public UserProfile getProfile(Long userId) {
+        UserProfile profile = userProfileRepository.findByUserId(userId);
+        if (profile == null) {
+            throw new IllegalArgumentException("Profile not found for user id: " + userId);
+        }
+        return profile;
+    }
+
+    @Transactional
+    public UserProfile updateProfile(Long userId, UserProfileDTO profileDTO) {
+        UserProfile profile = userProfileRepository.findByUserId(userId);
+        if (profile == null) {
+            throw new IllegalArgumentException("Profile not found for user id: " + userId);
+        }
+        
+        if (profileDTO.getBio() != null) {
+            profile.setBio(profileDTO.getBio());
+        }
+        if (profileDTO.getProfilePictureUrl() != null) {
+            profile.setProfilePictureUrl(profileDTO.getProfilePictureUrl());
+        }
+        if (profileDTO.getLocation() != null) {
+            profile.setLocation(profileDTO.getLocation());
+        }
+        
+        return userProfileRepository.save(profile);
+    }
+
+    @Transactional
+    public void deleteProfile(Long userId) {
+        UserProfile profile = userProfileRepository.findByUserId(userId);
+        if (profile != null) {
+            userProfileRepository.delete(profile);
+        }
+    }
+}package com.socialplatform.backend.userservice.service;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import javax.crypto.SecretKey;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
+
+@Service
+public class JwtService {
+
+    @Value("${jwt.secret:your-secret-key-change-in-production-with-at-least-256-bits}")
+    private String secret;
+
+    @Value("${jwt.expiration:86400000}")
+    private long expiration;
+
+    private SecretKey getSigningKey() {
+        byte[] keyBytes = secret.getBytes();
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    public Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    private Claims extractAllClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    private Boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
+    }
+
+    public String generateToken(String username) {
+        Map<String, Object> claims = new HashMap<>();
+        return createToken(claims, username);
+    }
+
+    private String createToken(Map<String, Object> claims, String subject) {
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(subject)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public Boolean validateToken(String token, String username) {
+        final String extractedUsername = extractUsername(token);
+        return (extractedUsername.equals(username) && !isTokenExpired(token));
+    }
+
+    // Additional method for filter compatibility
+    public String getUsernameFromToken(String token) {
+        return extractUsername(token);
+    }
+}package com.socialplatform.backend.userservice.service;
+
+import com.socialplatform.backend.userservice.dto.UserRegistrationRequest;
+import com.socialplatform.backend.userservice.dto.UserResponse;
+import com.socialplatform.backend.userservice.model.User;
+import com.socialplatform.backend.userservice.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@Transactional
+public class UserService {
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private BCryptPasswordEncoder passwordEncoder;
+
+    public UserResponse registerUser(UserRegistrationRequest request) {
+        // Check for existing username
+        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+            logger.warn("Registration failed: Username {} already exists", request.getUsername());
+            throw new IllegalArgumentException("Username already exists");
+        }
+        
+        // Check for existing email
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            logger.warn("Registration failed: Email {} already exists", request.getEmail());
+            throw new IllegalArgumentException("Email already exists");
+        }
+
+        // Create and save new user
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setEmail(request.getEmail());
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setRole("USER");
+
+        User savedUser = userRepository.save(user);
+        logger.info("User registered successfully: {}", savedUser.getUsername());
+
+        return new UserResponse(savedUser.getId(), savedUser.getUsername(), 
+                              savedUser.getEmail(), savedUser.getRole(), savedUser.getCreatedAt());
+    }
+
+    public User findByUsername(String username) {
+        Optional<User> user = userRepository.findByUsername(username);
+        return user.orElse(null);
+    }
+
+    public boolean checkPassword(String rawPassword, String encodedPassword) {
+        boolean matches = passwordEncoder.matches(rawPassword, encodedPassword);
+        logger.debug("Password check result: {}", matches ? "MATCH" : "NO MATCH");
+        return matches;
+    }
+
+    // Additional methods for user management
+    public UserResponse updateUserRole(Long userId, String newRole) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+        String oldRole = user.getRole();
+        user.setRole(newRole);
+        User updatedUser = userRepository.save(user);
+        logger.info("Updated user role: {} -> {} for user: {}", 
+                   oldRole, newRole, updatedUser.getUsername());
+        return new UserResponse(updatedUser.getId(), updatedUser.getUsername(), 
+                              updatedUser.getEmail(), updatedUser.getRole(), updatedUser.getCreatedAt());
+    }
+
+    public List<User> getUsersByRole(String role) {
+        return userRepository.findByRole(role);
+    }
+
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    public Optional<User> getUserById(Long id) {
+        return userRepository.findById(id);
+    }
+}
+package com.socialplatform.backend.userservice;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class UserServiceApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(UserServiceApplication.class, args);
+    }
+}
+package com.socialplatform.backend.userservice.dto;
+
+public class LoginResponse {
+    private String token;
+
+    public LoginResponse(String token) {
+        this.token = token;
+    }
+
+    // Getters and Setters
+    public String getToken() { return token; }
+    public void setToken(String token) { this.token = token; }
+}
+package com.socialplatform.backend.userservice.dto;
+
+import java.time.LocalDateTime;
+
+public class UserResponse {
+    private Long id;
+    private String username;
+    private String email;
+    private String role;
+    private LocalDateTime createdAt;
+
+    public UserResponse(Long id, String username, String email, String role, LocalDateTime createdAt) {
+        this.id = id;
+        this.username = username;
+        this.email = email;
+        this.role = role;
+        this.createdAt = createdAt;
+    }
+
+    // Getters
+    public Long getId() { return id; }
+    public String getUsername() { return username; }
+    public String getEmail() { return email; }
+    public String getRole() { return role; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+}
+package com.socialplatform.backend.userservice.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public class UserRegistrationRequest {
+    @NotBlank(message = "Username is required")
+    @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
+    private String username;
+
+    @NotBlank(message = "Email is required")
+    @Email(message = "Email must be valid")
+    private String email;
+
+    @NotBlank(message = "Password is required")
+    @Size(min = 8, max = 100, message = "Password must be between 8 and 100 characters")
+    private String password;
+
+    // Getters and Setters
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+}
+package com.socialplatform.backend.userservice.dto;
+
+import jakarta.validation.constraints.Size;
+
+public class UserProfileDTO {
+    @Size(max = 500, message = "Bio must be less than 500 characters")
+    private String bio;
+
+    @Size(max = 255, message = "Profile picture URL must be less than 255 characters")
+    private String profilePictureUrl;
+
+    @Size(max = 100, message = "Location must be less than 100 characters")
+    private String location;
+
+    // Constructors
+    public UserProfileDTO() {}
+
+    public UserProfileDTO(String bio, String profilePictureUrl, String location) {
+        this.bio = bio;
+        this.profilePictureUrl = profilePictureUrl;
+        this.location = location;
+    }
+
+    // Getters and Setters
+    public String getBio() { return bio; }
+    public void setBio(String bio) { this.bio = bio; }
+
+    public String getProfilePictureUrl() { return profilePictureUrl; }
+    public void setProfilePictureUrl(String profilePictureUrl) { this.profilePictureUrl = profilePictureUrl; }
+
+    public String getLocation() { return location; }
+    public void setLocation(String location) { this.location = location; }
+}package com.socialplatform.backend.userservice.dto;
+
+import jakarta.validation.constraints.NotBlank;
+
+public class UserLoginRequest {
+    @NotBlank(message = "Username is required")
+    private String username;
+
+    @NotBlank(message = "Password is required")
+    private String password;
+
+    // Getters and Setters
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+}
+package com.socialplatform.backend.userservice.model;
+
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "user_profiles")
+public class UserProfile {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @Column(length = 500)
+    private String bio;
+
+    @Column(name = "profile_picture_url")
+    private String profilePictureUrl;
+
+    private String location;
+
+    // Constructors
+    public UserProfile() {}
+
+    public UserProfile(User user, String bio, String profilePictureUrl, String location) {
+        this.user = user;
+        this.bio = bio;
+        this.profilePictureUrl = profilePictureUrl;
+        this.location = location;
+    }
+
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public User getUser() { return user; }
+    public void setUser(User user) { this.user = user; }
+
+    public String getBio() { return bio; }
+    public void setBio(String bio) { this.bio = bio; }
+
+    public String getProfilePictureUrl() { return profilePictureUrl; }
+    public void setProfilePictureUrl(String profilePictureUrl) { this.profilePictureUrl = profilePictureUrl; }
+
+    public String getLocation() { return location; }
+    public void setLocation(String location) { this.location = location; }
+}package com.socialplatform.backend.userservice.model;
+
+import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "users")
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(unique = true, nullable = false, length = 50)
+    private String username;
+
+    @Column(unique = true, nullable = false, length = 100)
+    private String email;
+
+    @Column(name = "password_hash", nullable = false, length = 255)
+    private String passwordHash;
+
+    @Column(nullable = false, length = 20)
+    private String role = "USER";
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private UserProfile userProfile;
+
+    // Default constructor
+    public User() {}
+
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public String getPasswordHash() { return passwordHash; }
+    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public UserProfile getUserProfile() { return userProfile; }
+    public void setUserProfile(UserProfile userProfile) { this.userProfile = userProfile; }
+}package com.socialplatform.backend.userservice.controller;
+
+import com.socialplatform.backend.userservice.dto.UserRegistrationRequest;
+import com.socialplatform.backend.userservice.dto.UserResponse;
+import com.socialplatform.backend.userservice.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/simple")
+public class SimpleAuthController {
+    
+    @Autowired
+    private UserService userService;
+
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody UserRegistrationRequest request) {
+        try {
+            UserResponse userResponse = userService.registerUser(request);
+            return ResponseEntity.ok(userResponse);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "Registration failed: " + e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    @GetMapping("/test-db")
+    public String testDb() {
+        return "Database connection is working!";
+    }
+}
+package com.socialplatform.backend.userservice.controller;
+
+import com.socialplatform.backend.userservice.dto.UserRegistrationRequest;
+import com.socialplatform.backend.userservice.dto.UserLoginRequest;
+import com.socialplatform.backend.userservice.dto.UserResponse;
+import com.socialplatform.backend.userservice.dto.LoginResponse;
+import com.socialplatform.backend.userservice.dto.UserProfileDTO;
+import com.socialplatform.backend.userservice.model.User;
+import com.socialplatform.backend.userservice.model.UserProfile;
+import com.socialplatform.backend.userservice.service.JwtService;
+import com.socialplatform.backend.userservice.service.UserService;
+import com.socialplatform.backend.userservice.service.UserProfileService;
+import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/user")
+public class UserController {
+    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private JwtService jwtService;
+
+    @Autowired
+    private UserProfileService userProfileService;
+
+    @PostMapping("/register")
+    public ResponseEntity<UserResponse> register(@Valid @RequestBody UserRegistrationRequest request) {
+        logger.info("Processing registration for username: {}", request.getUsername());
+        UserResponse userResponse = userService.registerUser(request);
+        return new ResponseEntity<>(userResponse, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody UserLoginRequest request) {
+        logger.info("Processing login for username: {}", request.getUsername());
+        User user = userService.findByUsername(request.getUsername());
+        if (user == null || !userService.checkPassword(request.getPassword(), user.getPasswordHash())) {
+            logger.warn("Login failed for username: {}", request.getUsername());
+            throw new IllegalArgumentException("Invalid username or password");
+        }
+        String token = jwtService.generateToken(request.getUsername());
+        return new ResponseEntity<>(new LoginResponse(token), HttpStatus.OK);
+    }
+
+    // Profile Management Endpoints
+    @PostMapping("/profile")
+    public ResponseEntity<UserProfile> createProfile(@Valid @RequestBody UserProfileDTO profileDTO,
+                                                   @RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String username = jwtService.getUsernameFromToken(token);
+        User user = userService.findByUsername(username);
+        
+        UserProfile profile = userProfileService.createProfile(user.getId(), profileDTO);
+        return new ResponseEntity<>(profile, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/profile")
+    public ResponseEntity<UserProfile> getProfile(@RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String username = jwtService.getUsernameFromToken(token);
+        User user = userService.findByUsername(username);
+        
+        UserProfile profile = userProfileService.getProfile(user.getId());
+        return new ResponseEntity<>(profile, HttpStatus.OK);
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<UserProfile> updateProfile(@Valid @RequestBody UserProfileDTO profileDTO,
+                                                    @RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String username = jwtService.getUsernameFromToken(token);
+        User user = userService.findByUsername(username);
+        
+        UserProfile profile = userProfileService.updateProfile(user.getId(), profileDTO);
+        return new ResponseEntity<>(profile, HttpStatus.OK);
+    }
+
+    @DeleteMapping("/profile")
+    public ResponseEntity<Void> deleteProfile(@RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String username = jwtService.getUsernameFromToken(token);
+        User user = userService.findByUsername(username);
+        
+        userProfileService.deleteProfile(user.getId());
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+}package com.socialplatform.backend.userservice.controller;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@RestController
+@RequestMapping("/user")
+public class TestController {
+    private static final Logger logger = LoggerFactory.getLogger(TestController.class);
+
+    @GetMapping("/public")
+    public Map<String, String> publicEndpoint() {
+        logger.debug("Public endpoint accessed");
+        return Map.of(
+            "message", "This is a public endpoint - no authentication required",
+            "status", "PUBLIC"
+        );
+    }
+
+    @GetMapping("/test")
+    public Map<String, Object> protectedEndpoint(Authentication authentication) {
+        String username = authentication.getName();
+        String roles = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.joining(", "));
+                
+        logger.info("Protected endpoint accessed by user: {} with roles: {}", username, roles);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "User test endpoint - requires authentication");
+        response.put("user", username);
+        response.put("role", roles);
+        response.put("status", "AUTHENTICATED");
+        
+        return response;
+    }
+}
+package com.socialplatform.backend.userservice.controller;
+
+import com.socialplatform.backend.userservice.dto.UserRegistrationRequest;
+import com.socialplatform.backend.userservice.dto.UserResponse;
+import com.socialplatform.backend.userservice.model.User;
+import com.socialplatform.backend.userservice.service.JwtService;
+import com.socialplatform.backend.userservice.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/user")
+public class AuthController {
+    
+    @Autowired
+    private UserService userService;
+    
+    @Autowired
+    private JwtService jwtService;
+
+    @PostMapping("/v1/register")
+    public ResponseEntity<UserResponse> register(@RequestBody UserRegistrationRequest request) {
+        UserResponse userResponse = userService.registerUser(request);
+        return ResponseEntity.ok(userResponse);
+    }
+
+    @PostMapping("/v1/login")
+    public ResponseEntity<Map<String, String>> login(@RequestBody Map<String, String> credentials) {
+        String username = credentials.get("username");
+        String password = credentials.get("password");
+        User user = userService.findByUsername(username);
+        if (user != null && userService.checkPassword(password, user.getPasswordHash())) {
+            String token = jwtService.generateToken(username);
+            return ResponseEntity.ok(Map.of("token", token));
+        }
+        return ResponseEntity.status(401).body(Map.of("error", "Invalid credentials"));
+    }
+}package com.socialplatform.backend.userservice.repository;
+
+import com.socialplatform.backend.userservice.model.UserProfile;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+public interface UserProfileRepository extends JpaRepository<UserProfile, Long> {
+    
+    @Query("SELECT up FROM UserProfile up WHERE up.user.id = :userId")
+    UserProfile findByUserId(@Param("userId") Long userId);
+}package com.socialplatform.backend.userservice.repository;
+
+import com.socialplatform.backend.userservice.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface UserRepository extends JpaRepository<User, Long> {
+    Optional<User> findByUsername(String username);
+    Optional<User> findByEmail(String email);
+    List<User> findByRole(String role);
+}
+package com.socialplatform.backend.userservice.security;
+
+import com.socialplatform.backend.userservice.service.JwtService;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.Collections;
+
+@Component
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    @Autowired
+    private JwtService jwtService;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, 
+                                  FilterChain filterChain) throws ServletException, IOException {
+        final String authHeader = request.getHeader("Authorization");
+        final String jwt;
+        final String username;
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        jwt = authHeader.substring(7);
+        username = jwtService.getUsernameFromToken(jwt);
+
+        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (jwtService.validateToken(jwt, username)) {
+                UsernamePasswordAuthenticationToken authToken = 
+                    new UsernamePasswordAuthenticationToken(username, null, 
+                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            }
+        }
+        filterChain.doFilter(request, response);
+    }
+}package com.socialplatform.backend.userservice.config;
+
+import com.socialplatform.backend.userservice.security.JwtAuthenticationFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+    private static final Logger logger = LoggerFactory.getLogger(SecurityConfig.class);
+
+    @Bean
+    public BCryptPasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public JwtAuthenticationFilter jwtAuthenticationFilter() {
+        return new JwtAuthenticationFilter();
+    }
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        logger.info("Configuring Spring Security");
+
+        http
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(authz -> authz
+                .requestMatchers("/user/register", "/user/login", "/user/public").permitAll()
+                .anyRequest().authenticated()
+            )
+            .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint((request, response, authException) -> {
+                    logger.warn("Authentication failed for request: {} {}", 
+                               request.getMethod(), request.getRequestURI());
+                    response.setStatus(401);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\": \"Authentication required\"}");
+                })
+            );
+
+        return http.build();
+    }
+}package com.socialplatform.backend.userservice.config;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        for (FieldError error : ex.getBindingResult().getFieldErrors()) {
+            errors.put(error.getField(), error.getDefaultMessage());
+            logger.warn("Validation error on field {}: {}", error.getField(), error.getDefaultMessage());
+        }
+        return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalArgumentException(IllegalArgumentException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("error", ex.getMessage());
+        logger.error("Illegal argument error: {}", ex.getMessage());
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, String>> handleGeneralException(Exception ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("error", "Internal server error");
+        logger.error("Unexpected error: {}", ex.getMessage(), ex);
+        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+}
+# H2 In-Memory Database for testing
+spring.datasource.url=jdbc:h2:mem:testdb
+spring.datasource.driverClassName=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=
+
+# JPA Configuration
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+spring.jpa.hibernate.ddl-auto=create-drop
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+
+# H2 Console (access at http://localhost:8081/h2-console)
+spring.h2.console.enabled=true
+
+# Server Configuration
+server.port=8081
+
+# Disable Flyway
+spring.flyway.enabled=false# Database Configuration
+spring.datasource.url=jdbc:postgresql://localhost:5432/social_platform_db
+spring.datasource.username=postgres
+spring.datasource.password=OPen
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# JPA Configuration
+spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.properties.hibernate.format_sql=true
+
+# Flyway Configuration
+spring.flyway.enabled=true
+spring.flyway.url=jdbc:postgresql://localhost:5432/social_platform_db
+spring.flyway.user=postgres
+spring.flyway.password=OPen
+spring.flyway.locations=classpath:db/migration
+spring.flyway.baseline-on-migrate=true
+spring.flyway.validate-on-migrate=true
+
+# Server Configuration
+server.port=8081
+
+# JWT Configuration
+jwt.secret=your-secret-key-change-in-production-with-at-least-256-bits-long-enough-for-hs256
+jwt.expiration=86400000
+
+# Logging
+logging.level.com.socialplatform.backend=DEBUG
+logging.level.org.flywaydb=DEBUGCREATE TABLE users (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'USER',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);CREATE TABLE user_profiles (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id BIGINT NOT NULL,
+    bio VARCHAR(500),
+    profile_picture_url VARCHAR(255),
+    location VARCHAR(100),
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);CREATE TABLE posts (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id BIGINT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);package com.socialplatform.backend.userservice.service;
+
+import com.socialplatform.backend.userservice.dto.UserProfileDTO;
+import com.socialplatform.backend.userservice.model.User;
+import com.socialplatform.backend.userservice.model.UserProfile;
+import com.socialplatform.backend.userservice.repository.UserProfileRepository;
+import com.socialplatform.backend.userservice.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class UserProfileService {
+    
+    @Autowired
+    private UserProfileRepository userProfileRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Transactional
+    public UserProfile createProfile(Long userId, UserProfileDTO profileDTO) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        
+        // Check if profile already exists
+        UserProfile existingProfile = userProfileRepository.findByUserId(userId);
+        if (existingProfile != null) {
+            throw new IllegalArgumentException("Profile already exists for this user");
+        }
+        
+        UserProfile profile = new UserProfile();
+        profile.setUser(user);
+        profile.setBio(profileDTO.getBio());
+        profile.setProfilePictureUrl(profileDTO.getProfilePictureUrl());
+        profile.setLocation(profileDTO.getLocation());
+        
+        return userProfileRepository.save(profile);
+    }
+
+    public UserProfile getProfile(Long userId) {
+        UserProfile profile = userProfileRepository.findByUserId(userId);
+        if (profile == null) {
+            throw new IllegalArgumentException("Profile not found for user id: " + userId);
+        }
+        return profile;
+    }
+
+    @Transactional
+    public UserProfile updateProfile(Long userId, UserProfileDTO profileDTO) {
+        UserProfile profile = userProfileRepository.findByUserId(userId);
+        if (profile == null) {
+            throw new IllegalArgumentException("Profile not found for user id: " + userId);
+        }
+        
+        if (profileDTO.getBio() != null) {
+            profile.setBio(profileDTO.getBio());
+        }
+        if (profileDTO.getProfilePictureUrl() != null) {
+            profile.setProfilePictureUrl(profileDTO.getProfilePictureUrl());
+        }
+        if (profileDTO.getLocation() != null) {
+            profile.setLocation(profileDTO.getLocation());
+        }
+        
+        return userProfileRepository.save(profile);
+    }
+
+    @Transactional
+    public void deleteProfile(Long userId) {
+        UserProfile profile = userProfileRepository.findByUserId(userId);
+        if (profile != null) {
+            userProfileRepository.delete(profile);
+        }
+    }
+}package com.socialplatform.backend.userservice.dto;
+
+import jakarta.validation.constraints.Size;
+
+public class UserProfileDTO {
+    @Size(max = 500, message = "Bio must be less than 500 characters")
+    private String bio;
+
+    @Size(max = 255, message = "Profile picture URL must be less than 255 characters")
+    private String profilePictureUrl;
+
+    @Size(max = 100, message = "Location must be less than 100 characters")
+    private String location;
+
+    // Constructors
+    public UserProfileDTO() {}
+
+    public UserProfileDTO(String bio, String profilePictureUrl, String location) {
+        this.bio = bio;
+        this.profilePictureUrl = profilePictureUrl;
+        this.location = location;
+    }
+
+    // Getters and Setters
+    public String getBio() { return bio; }
+    public void setBio(String bio) { this.bio = bio; }
+
+    public String getProfilePictureUrl() { return profilePictureUrl; }
+    public void setProfilePictureUrl(String profilePictureUrl) { this.profilePictureUrl = profilePictureUrl; }
+
+    public String getLocation() { return location; }
+    public void setLocation(String location) { this.location = location; }
+}package com.socialplatform.backend.userservice.controller;
+
+import com.socialplatform.backend.userservice.dto.UserRegistrationRequest;
+import com.socialplatform.backend.userservice.dto.UserLoginRequest;
+import com.socialplatform.backend.userservice.dto.UserResponse;
+import com.socialplatform.backend.userservice.dto.LoginResponse;
+import com.socialplatform.backend.userservice.dto.UserProfileDTO;
+import com.socialplatform.backend.userservice.model.User;
+import com.socialplatform.backend.userservice.model.UserProfile;
+import com.socialplatform.backend.userservice.service.JwtService;
+import com.socialplatform.backend.userservice.service.UserService;
+import com.socialplatform.backend.userservice.service.UserProfileService;
+import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/user")
+public class UserController {
+    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private JwtService jwtService;
+
+    @Autowired
+    private UserProfileService userProfileService;
+
+    @PostMapping("/register")
+    public ResponseEntity<UserResponse> register(@Valid @RequestBody UserRegistrationRequest request) {
+        logger.info("Processing registration for username: {}", request.getUsername());
+        UserResponse userResponse = userService.registerUser(request);
+        return new ResponseEntity<>(userResponse, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody UserLoginRequest request) {
+        logger.info("Processing login for username: {}", request.getUsername());
+        User user = userService.findByUsername(request.getUsername());
+        if (user == null || !userService.checkPassword(request.getPassword(), user.getPasswordHash())) {
+            logger.warn("Login failed for username: {}", request.getUsername());
+            throw new IllegalArgumentException("Invalid username or password");
+        }
+        String token = jwtService.generateToken(request.getUsername());
+        return new ResponseEntity<>(new LoginResponse(token), HttpStatus.OK);
+    }
+
+    @GetMapping("/public")
+    public ResponseEntity<String> publicEndpoint() {
+        return ResponseEntity.ok("This is a public endpoint");
+    }
+
+    // Profile Management Endpoints
+    @PostMapping("/profile")
+    public ResponseEntity<UserProfile> createProfile(@Valid @RequestBody UserProfileDTO profileDTO,
+                                                   @RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String username = jwtService.extractUsername(token);
+        User user = userService.findByUsername(username);
+        
+        UserProfile profile = userProfileService.createProfile(user.getId(), profileDTO);
+        return new ResponseEntity<>(profile, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/profile")
+    public ResponseEntity<UserProfile> getProfile(@RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String username = jwtService.extractUsername(token);
+        User user = userService.findByUsername(username);
+        
+        UserProfile profile = userProfileService.getProfile(user.getId());
+        return new ResponseEntity<>(profile, HttpStatus.OK);
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<UserProfile> updateProfile(@Valid @RequestBody UserProfileDTO profileDTO,
+                                                    @RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String username = jwtService.extractUsername(token);
+        User user = userService.findByUsername(username);
+        
+        UserProfile profile = userProfileService.updateProfile(user.getId(), profileDTO);
+        return new ResponseEntity<>(profile, HttpStatus.OK);
+    }
+
+    @DeleteMapping("/profile")
+    public ResponseEntity<Void> deleteProfile(@RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String username = jwtService.extractUsername(token);
+        User user = userService.findByUsername(username);
+        
+        userProfileService.deleteProfile(user.getId());
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+}package com.socialplatform.backend.userservice.repository;
+
+import com.socialplatform.backend.userservice.model.UserProfile;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+public interface UserProfileRepository extends JpaRepository<UserProfile, Long> {
+    
+    @Query("SELECT up FROM UserProfile up WHERE up.user.id = :userId")
+    UserProfile findByUserId(@Param("userId") Long userId);
+}package com.socialplatform.backend.userservice.config;
+
+import com.socialplatform.backend.userservice.service.JwtService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+    private static final Logger logger = LoggerFactory.getLogger(SecurityConfig.class);
+
+    @Autowired
+    private JwtService jwtService;
+
+    @Bean
+    public BCryptPasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public JwtAuthenticationFilter jwtAuthenticationFilter() {
+        return new JwtAuthenticationFilter(jwtService);
+    }
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        logger.info("Configuring Spring Security");
+
+        http
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(authz -> authz
+                .requestMatchers("/user/register", "/user/login", "/user/public").permitAll()
+                .anyRequest().authenticated()
+            )
+            .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint((request, response, authException) -> {
+                    logger.warn("Authentication failed for request: {} {}", 
+                               request.getMethod(), request.getRequestURI());
+                    response.setStatus(401);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\": \"Authentication required\"}");
+                })
+            );
+
+        return http.build();
+    }
+}-- Baseline migration for existing schema
+-- This acknowledges the existing users table structure
+CREATE TABLE IF NOT EXISTS users (
+    id BIGSERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);-- Add role column safely
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'users' AND column_name = 'role'
+    ) THEN
+        ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'USER';
+    END IF;
+END $$;

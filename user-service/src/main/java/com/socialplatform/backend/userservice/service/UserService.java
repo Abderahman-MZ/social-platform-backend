@@ -63,6 +63,11 @@ public class UserService {
         return matches;
     }
 
+    // ⭐ NEW: Method for post-service Feign client
+    public Optional<User> findById(Long userId) {
+        return userRepository.findById(userId);
+    }
+
     // Additional methods for user management
     public UserResponse updateUserRole(Long userId, String newRole) {
         User user = userRepository.findById(userId)

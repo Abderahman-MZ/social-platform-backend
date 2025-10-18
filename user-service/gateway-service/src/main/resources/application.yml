@@ -1,0 +1,68 @@
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: user-service-public
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/users/user/public
+          filters:
+            - StripPrefix=2
+            - AddResponseHeader=X-Gateway-Routed, true
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                redis-rate-limiter.requestedTokens: 1
+
+        - id: user-service-register
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/users/register
+          filters:
+            - StripPrefix=2
+            - AddResponseHeader=X-Gateway-Routed, true
+
+        - id: user-service-login
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/users/login
+          filters:
+            - StripPrefix=2
+            - AddResponseHeader=X-Gateway-Routed, true
+
+        - id: user-service-profile
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/users/user/profile
+          filters:
+            - StripPrefix=2
+            - AddResponseHeader=X-Gateway-Routed, true
+
+        - id: user-service-protected
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/users/user/**
+          filters:
+            - StripPrefix=2
+            - AddResponseHeader=X-Gateway-Routed, true
+
+      default-filters:
+        - AddRequestHeader=X-Forwarded-Host, localhost:8080
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+
+  main:
+    web-application-type: reactive
+
+# Actuator endpoints
+management:
+  endpoint:
+    gateway:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,routes
+
+server:
+  port: 8082
