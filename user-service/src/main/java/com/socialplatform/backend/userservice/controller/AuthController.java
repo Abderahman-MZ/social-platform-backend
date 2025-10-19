@@ -5,6 +5,7 @@ import com.socialplatform.backend.userservice.dto.UserResponse;
 import com.socialplatform.backend.userservice.model.User;
 import com.socialplatform.backend.userservice.service.JwtService;
 import com.socialplatform.backend.userservice.service.UserService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -33,7 +34,7 @@ public class AuthController {
         String password = credentials.get("password");
         User user = userService.findByUsername(username);
         if (user != null && userService.checkPassword(password, user.getPasswordHash())) {
-            String token = jwtService.generateToken(username);
+            String token = jwtService.generateToken(user.getId(), user.getUsername());
             return ResponseEntity.ok(Map.of("token", token));
         }
         return ResponseEntity.status(401).body(Map.of("error", "Invalid credentials"));

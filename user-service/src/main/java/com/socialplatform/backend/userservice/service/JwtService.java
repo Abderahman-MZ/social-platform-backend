@@ -2,7 +2,6 @@ package com.socialplatform.backend.userservice.service;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -16,10 +15,10 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-    @Value("${jwt.secret:your-secret-key-change-in-production-with-at-least-256-bits}")
+    @Value("${jwt.secret}")
     private String secret;
 
-    @Value("${jwt.expiration:86400000}")
+    @Value("${jwt.expiration}")
     private long expiration;
 
     private SecretKey getSigningKey() {
@@ -52,16 +51,9 @@ public class JwtService {
         return extractExpiration(token).before(new Date());
     }
 
-    // ⭐ UPDATED: Generate token with userId claim
     public String generateToken(Long userId, String username) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId.toString());
-        return createToken(claims, username);
-    }
-
-    // Keep old method for backward compatibility
-    public String generateToken(String username) {
-        Map<String, Object> claims = new HashMap<>();
         return createToken(claims, username);
     }
 
@@ -71,7 +63,7 @@ public class JwtService {
                 .setSubject(subject)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .signWith(getSigningKey())
                 .compact();
     }
 
@@ -80,7 +72,6 @@ public class JwtService {
         return (extractedUsername.equals(username) && !isTokenExpired(token));
     }
 
-    // Additional method for filter compatibility
     public String getUsernameFromToken(String token) {
         return extractUsername(token);
     }

@@ -11,7 +11,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -63,33 +62,7 @@ public class UserService {
         return matches;
     }
 
-    // ⭐ NEW: Method for post-service Feign client
     public Optional<User> findById(Long userId) {
         return userRepository.findById(userId);
-    }
-
-    // Additional methods for user management
-    public UserResponse updateUserRole(Long userId, String newRole) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
-        String oldRole = user.getRole();
-        user.setRole(newRole);
-        User updatedUser = userRepository.save(user);
-        logger.info("Updated user role: {} -> {} for user: {}", 
-                   oldRole, newRole, updatedUser.getUsername());
-        return new UserResponse(updatedUser.getId(), updatedUser.getUsername(), 
-                              updatedUser.getEmail(), updatedUser.getRole(), updatedUser.getCreatedAt());
-    }
-
-    public List<User> getUsersByRole(String role) {
-        return userRepository.findByRole(role);
-    }
-
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
-    }
-
-    public Optional<User> getUserById(Long id) {
-        return userRepository.findById(id);
     }
 }
