@@ -1,23 +1,23 @@
 package com.socialplatform.backend.userservice.controller;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
+@RequestMapping("/api/test")
 public class TestController {
 
-    @GetMapping("/test")
-    public String publicEndpoint() {
-        return "Public test endpoint - accessible to all";
+    @GetMapping("/hello")
+    public String hello() {
+        return "Hello from User Service!";
     }
 
-    @GetMapping("/admin/test")
-    public String adminEndpoint() {
-        return "Admin test endpoint - requires ROLE_ADMIN";
+    @PostMapping("/register")
+    public String register(@RequestBody String request) {
+        return "User registration endpoint - Request: " + request;
     }
 
-    @GetMapping("/user/test")
-    public String userEndpoint() {
-        return "User test endpoint - requires authentication";
+    @PostMapping("/login") 
+    public String login(@RequestBody String request) {
+        return "User login endpoint - Request: " + request;
     }
 }

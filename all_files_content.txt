@@ -1,0 +1,1065 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" 
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.4.10</version>
+        <relativePath/>
+    </parent>
+    
+    <groupId>com.socialplatform</groupId>
+    <artifactId>backend</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>backend</name>
+    <description>Social Platform Backend</description>
+    <packaging>pom</packaging>
+    
+    <properties>
+        <java.version>21</java.version>
+    </properties>
+
+    <modules>
+        <module>user-service</module>
+        <module>post-service</module>
+        <module>gateway-service</module>
+    </modules>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.11.5</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.11.5</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.11.5</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project><?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" 
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>com.socialplatform</groupId>
+        <artifactId>backend</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>post-service</artifactId>
+    <name>post-service</name>
+    <description>Post management microservice</description>
+
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.11.5</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.11.5</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.11.5</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+            <version>4.1.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-maven-plugin</artifactId>
+                <version>10.20.0</version>
+                <configuration>
+                    <url>jdbc:postgresql://localhost:5432/social_platform_db</url>
+                    <user>postgres</user>
+                    <password>OPen</password>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>spring.application.name=post-service
+spring.datasource.url=jdbc:postgresql://localhost:5432/social_platform_db
+spring.datasource.username=postgres
+spring.datasource.password=OPen
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.properties.hibernate.format_sql=true
+spring.flyway.enabled=true
+spring.flyway.url=jdbc:postgresql://localhost:5432/social_platform_db
+spring.flyway.user=postgres
+spring.flyway.password=OPen
+spring.flyway.locations=classpath:db/migration
+spring.flyway.baseline-on-migrate=true
+server.port=8083
+jwt.secret=your-secret-key-change-in-production-with-at-least-256-bits-long-enough-for-hs256
+jwt.expiration=86400000
+logging.level.com.socialplatform.backend=DEBUG
+logging.level.org.flywaydb=DEBUGserver.port=8082
+spring.application.name=gateway-service
+spring.main.web-application-type=reactive
+spring.main.allow-bean-definition-overriding=true
+
+spring.autoconfigure.exclude=\
+  org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,\
+  org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration,\
+  org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration,\
+  org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+
+# User Service Route
+spring.cloud.gateway.routes[0].id=user-service-all
+spring.cloud.gateway.routes[0].uri=http://localhost:8081
+spring.cloud.gateway.routes[0].predicates[0]=Path=/api/users/**
+spring.cloud.gateway.routes[0].filters[0]=StripPrefix=2
+
+# Post Service Route
+spring.cloud.gateway.routes[1].id=post-service
+spring.cloud.gateway.routes[1].uri=http://localhost:8083
+spring.cloud.gateway.routes[1].predicates[0]=Path=/api/posts/**
+spring.cloud.gateway.routes[1].filters[0]=StripPrefix=2
+
+management.endpoints.web.exposure.include=health,info,routes,gatewayCREATE TABLE IF NOT EXISTS posts (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id BIGINT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);CREATE TABLE follows (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    follower_id BIGINT NOT NULL,
+    followed_id BIGINT NOT NULL,
+    CONSTRAINT fk_follower FOREIGN KEY (follower_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_followed FOREIGN KEY (followed_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT unique_follow UNIQUE (follower_id, followed_id)
+);package com.socialplatform.backend.postservice.model;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.LocalDateTime;
+
+@Data
+@Entity
+@Table(name = "posts")
+public class Post {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
+    @Column(nullable = false)
+    private String title;
+
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String content;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+}package com.socialplatform.backend.postservice.model;
+
+import jakarta.persistence.*;
+import lombok.Data;
+
+@Data
+@Entity
+@Table(name = "follows")
+public class Follow {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "follower_id", nullable = false)
+    private Long followerId;
+
+    @Column(name = "followed_id", nullable = false)
+    private Long followedId;
+}package com.socialplatform.backend.postservice.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.Data;
+
+@Data
+public class PostDTO {
+    @NotBlank(message = "Title is required")
+    @Size(max = 255, message = "Title must be less than 255 characters")
+    private String title;
+
+    @NotBlank(message = "Content is required")
+    private String content;
+}package com.socialplatform.backend.postservice.dto;
+
+import lombok.Data;
+import java.time.LocalDateTime;
+
+@Data
+public class PostResponseDTO {
+    private Long id;
+    private Long userId;
+    private String username;
+    private String title;
+    private String content;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+}package com.socialplatform.backend.postservice.repository;
+
+import com.socialplatform.backend.postservice.model.Post;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import java.util.List;
+
+public interface PostRepository extends JpaRepository<Post, Long> {
+    List<Post> findByUserId(Long userId);
+
+    @Query("SELECT p FROM Post p WHERE p.userId IN :userIds ORDER BY p.createdAt DESC")
+    List<Post> findByUserIds(@Param("userIds") List<Long> userIds);
+}package com.socialplatform.backend.postservice.repository;
+
+import com.socialplatform.backend.postservice.model.Follow;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import java.util.List;
+
+public interface FollowRepository extends JpaRepository<Follow, Long> {
+    @Query("SELECT f.followedId FROM Follow f WHERE f.followerId = :followerId")
+    List<Long> findFollowedIdsByFollowerId(@Param("followerId") Long followerId);
+    
+    boolean existsByFollowerIdAndFollowedId(Long followerId, Long followedId);
+    
+    void deleteByFollowerIdAndFollowedId(Long followerId, Long followedId);
+}package com.socialplatform.backend.postservice.service;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
+@FeignClient(name = "user-service", url = "http://localhost:8081")
+public interface UserServiceClient {
+    @GetMapping("/api/users/user/username/{userId}")
+    String getUsernameById(@PathVariable("userId") Long userId);
+
+    @GetMapping("/api/users/user/exists/{userId}")
+    Boolean userExists(@PathVariable("userId") Long userId);
+}package com.socialplatform.backend.postservice.service;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import javax.crypto.SecretKey;
+import java.util.Date;
+import java.util.function.Function;
+
+@Service
+public class JwtService {
+
+    @Value("${jwt.secret:your-secret-key-change-in-production-with-at-least-256-bits}")
+    private String secret;
+
+    @Value("${jwt.expiration:86400000}")
+    private long expiration;
+
+    private SecretKey getSigningKey() {
+        byte[] keyBytes = secret.getBytes();
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    public Long extractUserId(String token) {
+        return Long.valueOf(extractClaim(token, claims -> claims.get("userId", String.class)));
+    }
+
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    private Claims extractAllClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    public Boolean validateToken(String token) {
+        try {
+            extractAllClaims(token);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+}package com.socialplatform.backend.postservice.service;
+
+import com.socialplatform.backend.postservice.dto.PostDTO;
+import com.socialplatform.backend.postservice.dto.PostResponseDTO;
+import com.socialplatform.backend.postservice.model.Follow;
+import com.socialplatform.backend.postservice.model.Post;
+import com.socialplatform.backend.postservice.repository.FollowRepository;
+import com.socialplatform.backend.postservice.repository.PostRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class PostService {
+    @Autowired
+    private PostRepository postRepository;
+
+    @Autowired
+    private FollowRepository followRepository;
+
+    @Autowired
+    private UserServiceClient userServiceClient;
+
+    @Transactional
+    public PostResponseDTO createPost(Long userId, PostDTO postDTO) {
+        Post post = new Post();
+        post.setUserId(userId);
+        post.setTitle(postDTO.getTitle());
+        post.setContent(postDTO.getContent());
+        Post savedPost = postRepository.save(post);
+        
+        String username = userServiceClient.getUsernameById(userId);
+        return convertToDTO(savedPost, username);
+    }
+
+    public PostResponseDTO getPost(Long postId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+        String username = userServiceClient.getUsernameById(post.getUserId());
+        return convertToDTO(post, username);
+    }
+
+    public List<PostResponseDTO> getPostsByUserId(Long userId) {
+        String username = userServiceClient.getUsernameById(userId);
+        return postRepository.findByUserId(userId).stream()
+                .map(post -> convertToDTO(post, username))
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public PostResponseDTO updatePost(Long postId, PostDTO postDTO, Long userId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+        
+        if (!post.getUserId().equals(userId)) {
+            throw new RuntimeException("User not authorized to update this post");
+        }
+        
+        post.setTitle(postDTO.getTitle());
+        post.setContent(postDTO.getContent());
+        Post updatedPost = postRepository.save(post);
+        String username = userServiceClient.getUsernameById(userId);
+        return convertToDTO(updatedPost, username);
+    }
+
+    @Transactional
+    public void deletePost(Long postId, Long userId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+        
+        if (!post.getUserId().equals(userId)) {
+            throw new RuntimeException("User not authorized to delete this post");
+        }
+        
+        postRepository.delete(post);
+    }
+
+    public List<PostResponseDTO> getUserFeed(Long userId) {
+        // Feed algorithm: Get posts from user and their followed users
+        List<Long> followedIds = followRepository.findFollowedIdsByFollowerId(userId);
+        followedIds.add(userId); // Include user's own posts
+        
+        List<Post> posts = postRepository.findByUserIds(followedIds);
+        
+        return posts.stream()
+                .map(post -> {
+                    String username = userServiceClient.getUsernameById(post.getUserId());
+                    return convertToDTO(post, username);
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void followUser(Long followerId, Long followedId) {
+        if (followerId.equals(followedId)) {
+            throw new RuntimeException("Cannot follow yourself");
+        }
+        
+        Boolean userExists = userServiceClient.userExists(followedId);
+        if (userExists == null || !userExists) {
+            throw new RuntimeException("Followed user does not exist");
+        }
+        
+        if (followRepository.existsByFollowerIdAndFollowedId(followerId, followedId)) {
+            throw new RuntimeException("Already following this user");
+        }
+        
+        Follow follow = new Follow();
+        follow.setFollowerId(followerId);
+        follow.setFollowedId(followedId);
+        followRepository.save(follow);
+    }
+
+    @Transactional
+    public void unfollowUser(Long followerId, Long followedId) {
+        if (!followRepository.existsByFollowerIdAndFollowedId(followerId, followedId)) {
+            throw new RuntimeException("Not following this user");
+        }
+        followRepository.deleteByFollowerIdAndFollowedId(followerId, followedId);
+    }
+
+    private PostResponseDTO convertToDTO(Post post, String username) {
+        PostResponseDTO dto = new PostResponseDTO();
+        dto.setId(post.getId());
+        dto.setUserId(post.getUserId());
+        dto.setUsername(username);
+        dto.setTitle(post.getTitle());
+        dto.setContent(post.getContent());
+        dto.setCreatedAt(post.getCreatedAt());
+        dto.setUpdatedAt(post.getUpdatedAt());
+        return dto;
+    }
+}package com.socialplatform.backend.postservice.security;
+
+import com.socialplatform.backend.postservice.service.JwtService;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.Collections;
+
+@Component
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    @Autowired
+    private JwtService jwtService;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
+        final String authHeader = request.getHeader("Authorization");
+        
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        final String jwt = authHeader.substring(7);
+        
+        try {
+            if (jwtService.validateToken(jwt)) {
+                String username = jwtService.extractUsername(jwt);
+                
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        username, null, Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            }
+        } catch (Exception e) {
+            // Token validation failed, continue without authentication
+        }
+        
+        filterChain.doFilter(request, response);
+    }
+}package com.socialplatform.backend.postservice.config;
+
+import com.socialplatform.backend.postservice.security.JwtAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Autowired
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/posts/public").permitAll()
+                .anyRequest().authenticated()
+            )
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
+}
+package com.socialplatform.backend.postservice.controller;
+
+import com.socialplatform.backend.postservice.dto.PostDTO;
+import com.socialplatform.backend.postservice.dto.PostResponseDTO;
+import com.socialplatform.backend.postservice.service.JwtService;
+import com.socialplatform.backend.postservice.service.PostService;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/posts")
+public class PostController {
+
+    @Autowired
+    private PostService postService;
+
+    @Autowired
+    private JwtService jwtService;
+
+    @PostMapping
+    public ResponseEntity<PostResponseDTO> createPost(
+            @RequestHeader("Authorization") String authHeader,
+            @Valid @RequestBody PostDTO postDTO) {
+        String token = authHeader.replace("Bearer ", "");
+        Long userId = jwtService.extractUserId(token);
+        PostResponseDTO post = postService.createPost(userId, postDTO);
+        return new ResponseEntity<>(post, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/{postId}")
+    public ResponseEntity<PostResponseDTO> getPost(@PathVariable Long postId) {
+        PostResponseDTO post = postService.getPost(postId);
+        return ResponseEntity.ok(post);
+    }
+
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<PostResponseDTO>> getPostsByUserId(@PathVariable Long userId) {
+        List<PostResponseDTO> posts = postService.getPostsByUserId(userId);
+        return ResponseEntity.ok(posts);
+    }
+
+    @PutMapping("/{postId}")
+    public ResponseEntity<PostResponseDTO> updatePost(
+            @PathVariable Long postId,
+            @RequestHeader("Authorization") String authHeader,
+            @Valid @RequestBody PostDTO postDTO) {
+        String token = authHeader.replace("Bearer ", "");
+        Long userId = jwtService.extractUserId(token);
+        PostResponseDTO post = postService.updatePost(postId, postDTO, userId);
+        return ResponseEntity.ok(post);
+    }
+
+    @DeleteMapping("/{postId}")
+    public ResponseEntity<Void> deletePost(
+            @PathVariable Long postId,
+            @RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        Long userId = jwtService.extractUserId(token);
+        postService.deletePost(postId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/feed")
+    public ResponseEntity<List<PostResponseDTO>> getUserFeed(
+            @RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        Long userId = jwtService.extractUserId(token);
+        List<PostResponseDTO> feed = postService.getUserFeed(userId);
+        return ResponseEntity.ok(feed);
+    }
+
+    @PostMapping("/follow/{followedId}")
+    public ResponseEntity<Void> followUser(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long followedId) {
+        String token = authHeader.replace("Bearer ", "");
+        Long followerId = jwtService.extractUserId(token);
+        postService.followUser(followerId, followedId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/follow/{followedId}")
+    public ResponseEntity<Void> unfollowUser(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long followedId) {
+        String token = authHeader.replace("Bearer ", "");
+        Long followerId = jwtService.extractUserId(token);
+        postService.unfollowUser(followerId, followedId);
+        return ResponseEntity.noContent().build();
+    }
+}package com.socialplatform.backend.postservice;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.openfeign.EnableFeignClients;
+
+@SpringBootApplication
+@EnableFeignClients
+public class PostServiceApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(PostServiceApplication.class, args);
+    }
+}package com.socialplatform.backend.userservice.controller;
+
+import com.socialplatform.backend.userservice.dto.UserRegistrationRequest;
+import com.socialplatform.backend.userservice.dto.UserLoginRequest;
+import com.socialplatform.backend.userservice.dto.UserResponse;
+import com.socialplatform.backend.userservice.dto.LoginResponse;
+import com.socialplatform.backend.userservice.dto.UserProfileDTO;
+import com.socialplatform.backend.userservice.dto.UserProfileResponseDTO;
+import com.socialplatform.backend.userservice.model.User;
+import com.socialplatform.backend.userservice.service.JwtService;
+import com.socialplatform.backend.userservice.service.UserService;
+import com.socialplatform.backend.userservice.service.UserProfileService;
+import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/user")
+public class UserController {
+    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private JwtService jwtService;
+
+    @Autowired
+    private UserProfileService userProfileService;
+
+    @PostMapping("/register")
+    public ResponseEntity<UserResponse> register(@Valid @RequestBody UserRegistrationRequest request) {
+        logger.info("Processing registration for username: {}", request.getUsername());
+        UserResponse userResponse = userService.registerUser(request);
+        return new ResponseEntity<>(userResponse, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody UserLoginRequest request) {
+        logger.info("Processing login for username: {}", request.getUsername());
+        User user = userService.findByUsername(request.getUsername());
+        if (user == null || !userService.checkPassword(request.getPassword(), user.getPasswordHash())) {
+            logger.warn("Login failed for username: {}", request.getUsername());
+            throw new IllegalArgumentException("Invalid username or password");
+        }
+        String token = jwtService.generateToken(user.getId(), user.getUsername());
+        return new ResponseEntity<>(new LoginResponse(token), HttpStatus.OK);
+    }
+
+    // ⭐ UPDATED: Profile Management Endpoints - Now returning DTOs instead of entities
+    @PostMapping("/profile")
+    public ResponseEntity<UserProfileResponseDTO> createProfile(@Valid @RequestBody UserProfileDTO profileDTO,
+                                                   @RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String username = jwtService.getUsernameFromToken(token);
+        User user = userService.findByUsername(username);
+        
+        UserProfileResponseDTO profileResponse = userProfileService.createProfile(user.getId(), profileDTO);
+        return new ResponseEntity<>(profileResponse, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/profile")
+    public ResponseEntity<UserProfileResponseDTO> getProfile(@RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String username = jwtService.getUsernameFromToken(token);
+        User user = userService.findByUsername(username);
+        
+        UserProfileResponseDTO profileResponse = userProfileService.getProfile(user.getId());
+        return new ResponseEntity<>(profileResponse, HttpStatus.OK);
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<UserProfileResponseDTO> updateProfile(@Valid @RequestBody UserProfileDTO profileDTO,
+                                                    @RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String username = jwtService.getUsernameFromToken(token);
+        User user = userService.findByUsername(username);
+        
+        UserProfileResponseDTO profileResponse = userProfileService.updateProfile(user.getId(), profileDTO);
+        return new ResponseEntity<>(profileResponse, HttpStatus.OK);
+    }
+
+    @DeleteMapping("/profile")
+    public ResponseEntity<Void> deleteProfile(@RequestHeader("Authorization") String authHeader) {
+        String token = authHeader.replace("Bearer ", "");
+        String username = jwtService.getUsernameFromToken(token);
+        User user = userService.findByUsername(username);
+        
+        userProfileService.deleteProfile(user.getId());
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+
+    // ⭐ NEW: Endpoints for post-service Feign client
+    @GetMapping("/username/{userId}")
+    public ResponseEntity<String> getUsernameById(@PathVariable Long userId) {
+        User user = userService.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return ResponseEntity.ok(user.getUsername());
+    }
+
+    @GetMapping("/exists/{userId}")
+    public ResponseEntity<Boolean> userExists(@PathVariable Long userId) {
+        boolean exists = userService.findById(userId).isPresent();
+        return ResponseEntity.ok(exists);
+    }
+}package com.socialplatform.backend.userservice.service;
+
+import com.socialplatform.backend.userservice.dto.UserRegistrationRequest;
+import com.socialplatform.backend.userservice.dto.UserResponse;
+import com.socialplatform.backend.userservice.model.User;
+import com.socialplatform.backend.userservice.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@Transactional
+public class UserService {
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private BCryptPasswordEncoder passwordEncoder;
+
+    public UserResponse registerUser(UserRegistrationRequest request) {
+        // Check for existing username
+        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+            logger.warn("Registration failed: Username {} already exists", request.getUsername());
+            throw new IllegalArgumentException("Username already exists");
+        }
+        
+        // Check for existing email
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            logger.warn("Registration failed: Email {} already exists", request.getEmail());
+            throw new IllegalArgumentException("Email already exists");
+        }
+
+        // Create and save new user
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setEmail(request.getEmail());
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setRole("USER");
+
+        User savedUser = userRepository.save(user);
+        logger.info("User registered successfully: {}", savedUser.getUsername());
+
+        return new UserResponse(savedUser.getId(), savedUser.getUsername(), 
+                              savedUser.getEmail(), savedUser.getRole(), savedUser.getCreatedAt());
+    }
+
+    public User findByUsername(String username) {
+        Optional<User> user = userRepository.findByUsername(username);
+        return user.orElse(null);
+    }
+
+    public boolean checkPassword(String rawPassword, String encodedPassword) {
+        boolean matches = passwordEncoder.matches(rawPassword, encodedPassword);
+        logger.debug("Password check result: {}", matches ? "MATCH" : "NO MATCH");
+        return matches;
+    }
+
+    // ⭐ NEW: Method for post-service Feign client
+    public Optional<User> findById(Long userId) {
+        return userRepository.findById(userId);
+    }
+
+    // Additional methods for user management
+    public UserResponse updateUserRole(Long userId, String newRole) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
+        String oldRole = user.getRole();
+        user.setRole(newRole);
+        User updatedUser = userRepository.save(user);
+        logger.info("Updated user role: {} -> {} for user: {}", 
+                   oldRole, newRole, updatedUser.getUsername());
+        return new UserResponse(updatedUser.getId(), updatedUser.getUsername(), 
+                              updatedUser.getEmail(), updatedUser.getRole(), updatedUser.getCreatedAt());
+    }
+
+    public List<User> getUsersByRole(String role) {
+        return userRepository.findByRole(role);
+    }
+
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    public Optional<User> getUserById(Long id) {
+        return userRepository.findById(id);
+    }
+}package com.socialplatform.backend.userservice.service;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import javax.crypto.SecretKey;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
+
+@Service
+public class JwtService {
+
+    @Value("${jwt.secret:your-secret-key-change-in-production-with-at-least-256-bits}")
+    private String secret;
+
+    @Value("${jwt.expiration:86400000}")
+    private long expiration;
+
+    private SecretKey getSigningKey() {
+        byte[] keyBytes = secret.getBytes();
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    public Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    private Claims extractAllClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    private Boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
+    }
+
+    // ⭐ UPDATED: Generate token with userId claim
+    public String generateToken(Long userId, String username) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", userId.toString());
+        return createToken(claims, username);
+    }
+
+    // Keep old method for backward compatibility
+    public String generateToken(String username) {
+        Map<String, Object> claims = new HashMap<>();
+        return createToken(claims, username);
+    }
+
+    private String createToken(Map<String, Object> claims, String subject) {
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(subject)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public Boolean validateToken(String token, String username) {
+        final String extractedUsername = extractUsername(token);
+        return (extractedUsername.equals(username) && !isTokenExpired(token));
+    }
+
+    // Additional method for filter compatibility
+    public String getUsernameFromToken(String token) {
+        return extractUsername(token);
+    }
+}# Social Platform Backend
+
+## Overview
+Backend for the social platform, built with Java/Spring Boot, connected to PostgreSQL and Firebase.
+
+## Setup Instructions
+- Install Java 21 (via SDKMAN) and Maven
+- Run `mvn clean install` to build
+- Run `mvn spring-boot:run` to start locally
+
+## Directory Structure
+- `src/main/java`: Java source code
+- `pom.xml`: Maven dependencies
+- `Dockerfile`: Container configuration
+
+## CI/CD
+- Jenkins pipeline builds and tests on push to `main`
+
+## Contributing
+- Fork, branch (feature/*), submit PR to `main`
+- Requires review by team member
+
+## Database Connection and JPA Setup
+- Configured Spring Data JPA with PostgreSQL for `user-service`
+- Added `User` and `Post` JPA entities with proper annotations
+- Set up Flyway migrations for database versioning
+- Fixed code conflicts and import mismatches
+- Practiced Git merge conflict resolution
+- Committed with professional Git workflows (branch, PR, review)

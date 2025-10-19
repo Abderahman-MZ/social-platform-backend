@@ -1,0 +1,618 @@
+# COMPLETE SOCIAL PLATFORM BACKEND IMPLEMENTATION ANALYSIS
+# Generated from all configuration and source files
+# ======================================================
+
+=== 1. AUTH CONTROLLER (user-service) ===
+package com.socialplatform.backend.userservice.controller;
+
+import com.socialplatform.backend.userservice.dto.UserRegistrationRequest;
+import com.socialplatform.backend.userservice.dto.UserResponse;
+import com.socialplatform.backend.userservice.model.User;
+import com.socialplatform.backend.userservice.service.JwtService;
+import com.socialplatform.backend.userservice.service.UserService;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/user")
+public class AuthController {
+    
+    @Autowired
+    private UserService userService;
+    
+    @Autowired
+    private JwtService jwtService;
+
+    @PostMapping("/v1/register")
+    public ResponseEntity<UserResponse> register(@RequestBody UserRegistrationRequest request) {
+        UserResponse userResponse = userService.registerUser(request);
+        return ResponseEntity.ok(userResponse);
+    }
+
+    @PostMapping("/v1/login")
+    public ResponseEntity<Map<String, String>> login(@RequestBody Map<String, String> credentials) {
+        String username = credentials.get("username");
+        String password = credentials.get("password");
+        User user = userService.findByUsername(username);
+        if (user != null && userService.checkPassword(password, user.getPasswordHash())) {
+            String token = jwtService.generateToken(user.getId(), user.getUsername());
+            return ResponseEntity.ok(Map.of("token", token));
+        }
+        return ResponseEntity.status(401).body(Map.of("error", "Invalid credentials"));
+    }
+}
+
+
+=== 2. USER CONTROLLER (user-service) ===
+package com.socialplatform.backend.userservice.controller;
+
+import com.socialplatform.backend.userservice.dto.UserRegistrationRequest;
+import com.socialplatform.backend.userservice.dto.UserLoginRequest;
+import com.socialplatform.backend.userservice.dto.UserResponse;
+import com.socialplatform.backend.userservice.dto.LoginResponse;
+import com.socialplatform.backend.userservice.model.User;
+import com.socialplatform.backend.userservice.service.JwtService;
+import com.socialplatform.backend.userservice.service.UserService;
+import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map; // ✅ ADD THIS IMPORT
+
+@RestController
+@RequestMapping("/user")
+public class UserController {
+    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private JwtService jwtService;
+
+    @GetMapping("/public")
+    public ResponseEntity<?> publicEndpoint() {
+        return ResponseEntity.ok().body(
+            Map.of("message", "This is a public endpoint - no authentication required", 
+                   "status", "PUBLIC") // ✅ NOW Map IS IMPORTED
+        );
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<UserResponse> register(@Valid @RequestBody UserRegistrationRequest request) {
+        logger.info("Processing registration for username: {}", request.getUsername());
+        UserResponse userResponse = userService.registerUser(request);
+        return new ResponseEntity<>(userResponse, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody UserLoginRequest request) {
+        logger.info("Processing login for username: {}", request.getUsername());
+        User user = userService.findByUsername(request.getUsername());
+        if (user == null || !userService.checkPassword(request.getPassword(), user.getPasswordHash())) {
+            logger.warn("Login failed for username: {}", request.getUsername());
+            throw new IllegalArgumentException("Invalid username or password");
+        }
+        String token = jwtService.generateToken(user.getId(), user.getUsername()); // ✅ FIXED METHOD CALL
+        return new ResponseEntity<>(new LoginResponse(token, "Login successful"), HttpStatus.OK); // ✅ FIXED CONSTRUCTOR
+    }
+
+    @GetMapping("/username/{userId}")
+    public ResponseEntity<String> getUsernameById(@PathVariable Long userId) {
+        User user = userService.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return ResponseEntity.ok(user.getUsername());
+    }
+
+    @GetMapping("/exists/{userId}")
+    public ResponseEntity<Boolean> userExists(@PathVariable Long userId) {
+        boolean exists = userService.findById(userId).isPresent();
+        return ResponseEntity.ok(exists);
+    }
+}
+
+=== 3. USER SERVICE (user-service) ===
+package com.socialplatform.backend.userservice.service;
+
+import com.socialplatform.backend.userservice.dto.UserRegistrationRequest;
+import com.socialplatform.backend.userservice.dto.UserResponse;
+import com.socialplatform.backend.userservice.model.User;
+import com.socialplatform.backend.userservice.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
+
+@Service
+@Transactional
+public class UserService {
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private BCryptPasswordEncoder passwordEncoder;
+
+    public UserResponse registerUser(UserRegistrationRequest request) {
+        // Check for existing username
+        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+            logger.warn("Registration failed: Username {} already exists", request.getUsername());
+            throw new IllegalArgumentException("Username already exists");
+        }
+        
+        // Check for existing email
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            logger.warn("Registration failed: Email {} already exists", request.getEmail());
+            throw new IllegalArgumentException("Email already exists");
+        }
+
+        // Create and save new user
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setEmail(request.getEmail());
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setRole("USER");
+
+        User savedUser = userRepository.save(user);
+        logger.info("User registered successfully: {}", savedUser.getUsername());
+
+        return new UserResponse(savedUser.getId(), savedUser.getUsername(), 
+                              savedUser.getEmail(), savedUser.getRole(), savedUser.getCreatedAt());
+    }
+
+    public User findByUsername(String username) {
+        Optional<User> user = userRepository.findByUsername(username);
+        return user.orElse(null);
+    }
+
+    public boolean checkPassword(String rawPassword, String encodedPassword) {
+        boolean matches = passwordEncoder.matches(rawPassword, encodedPassword);
+        logger.debug("Password check result: {}", matches ? "MATCH" : "NO MATCH");
+        return matches;
+    }
+
+    public Optional<User> findById(Long userId) {
+        return userRepository.findById(userId);
+    }
+}
+
+=== 4. JWT SERVICE (post-service) ===
+package com.socialplatform.backend.postservice.service;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import javax.crypto.SecretKey;
+import java.util.function.Function;
+
+@Service
+public class JwtService {
+
+    @Value("${jwt.secret}")
+    private String secret;
+
+    @Value("${jwt.expiration}")
+    private long expiration;
+
+    private SecretKey getSigningKey() {
+        byte[] keyBytes = secret.getBytes();
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    public Long extractUserId(String token) {
+        return Long.valueOf(extractClaim(token, claims -> claims.get("userId", String.class)));
+    }
+
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    private Claims extractAllClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    public Boolean validateToken(String token) {
+        try {
+            extractAllClaims(token);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+}
+
+=== 5. POST SERVICE (post-service) ===
+package com.socialplatform.backend.postservice.service;
+
+import com.socialplatform.backend.postservice.dto.PostDTO;
+import com.socialplatform.backend.postservice.dto.PostResponseDTO;
+import com.socialplatform.backend.postservice.model.Follow;
+import com.socialplatform.backend.postservice.model.Post;
+import com.socialplatform.backend.postservice.repository.FollowRepository;
+import com.socialplatform.backend.postservice.repository.PostRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class PostService {
+    @Autowired
+    private PostRepository postRepository;
+
+    @Autowired
+    private FollowRepository followRepository;
+
+    @Autowired
+    private UserServiceClient userServiceClient;
+
+    @Transactional
+    public PostResponseDTO createPost(Long userId, PostDTO postDTO) {
+        Post post = new Post();
+        post.setUserId(userId);
+        post.setTitle(postDTO.getTitle());
+        post.setContent(postDTO.getContent());
+        Post savedPost = postRepository.save(post);
+        
+        String username = userServiceClient.getUsernameById(userId);
+        return convertToDTO(savedPost, username);
+    }
+
+    public PostResponseDTO getPost(Long postId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+        String username = userServiceClient.getUsernameById(post.getUserId());
+        return convertToDTO(post, username);
+    }
+
+    public List<PostResponseDTO> getPostsByUserId(Long userId) {
+        String username = userServiceClient.getUsernameById(userId);
+        return postRepository.findByUserId(userId).stream()
+                .map(post -> convertToDTO(post, username))
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public PostResponseDTO updatePost(Long postId, PostDTO postDTO, Long userId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+        
+        if (!post.getUserId().equals(userId)) {
+            throw new RuntimeException("User not authorized to update this post");
+        }
+        
+        post.setTitle(postDTO.getTitle());
+        post.setContent(postDTO.getContent());
+        Post updatedPost = postRepository.save(post);
+        String username = userServiceClient.getUsernameById(userId);
+        return convertToDTO(updatedPost, username);
+    }
+
+    @Transactional
+    public void deletePost(Long postId, Long userId) {
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+        
+        if (!post.getUserId().equals(userId)) {
+            throw new RuntimeException("User not authorized to delete this post");
+        }
+        
+        postRepository.delete(post);
+    }
+
+    public List<PostResponseDTO> getUserFeed(Long userId) {
+        // Feed algorithm: Get posts from user and their followed users
+        List<Long> followedIds = followRepository.findFollowedIdsByFollowerId(userId);
+        followedIds.add(userId); // Include user's own posts
+        
+        List<Post> posts = postRepository.findByUserIds(followedIds);
+        
+        return posts.stream()
+                .map(post -> {
+                    String username = userServiceClient.getUsernameById(post.getUserId());
+                    return convertToDTO(post, username);
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void followUser(Long followerId, Long followedId) {
+        if (followerId.equals(followedId)) {
+            throw new RuntimeException("Cannot follow yourself");
+        }
+        
+        Boolean userExists = userServiceClient.userExists(followedId);
+        if (userExists == null || !userExists) {
+            throw new RuntimeException("Followed user does not exist");
+        }
+        
+        if (followRepository.existsByFollowerIdAndFollowedId(followerId, followedId)) {
+            throw new RuntimeException("Already following this user");
+        }
+        
+        Follow follow = new Follow();
+        follow.setFollowerId(followerId);
+        follow.setFollowedId(followedId);
+        followRepository.save(follow);
+    }
+
+    @Transactional
+    public void unfollowUser(Long followerId, Long followedId) {
+        if (!followRepository.existsByFollowerIdAndFollowedId(followerId, followedId)) {
+            throw new RuntimeException("Not following this user");
+        }
+        followRepository.deleteByFollowerIdAndFollowedId(followerId, followedId);
+    }
+
+    private PostResponseDTO convertToDTO(Post post, String username) {
+        PostResponseDTO dto = new PostResponseDTO();
+        dto.setId(post.getId());
+        dto.setUserId(post.getUserId());
+        dto.setUsername(username);
+        dto.setTitle(post.getTitle());
+        dto.setContent(post.getContent());
+        dto.setCreatedAt(post.getCreatedAt());
+        dto.setUpdatedAt(post.getUpdatedAt());
+        return dto;
+    }
+}
+
+=== 6. USER SERVICE CLIENT (post-service) ===
+package com.socialplatform.backend.postservice.service;
+
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
+@FeignClient(name = "user-service", url = "http://localhost:8081")
+public interface UserServiceClient {
+    @GetMapping("/api/users/user/username/{userId}")
+    String getUsernameById(@PathVariable("userId") Long userId);
+
+    @GetMapping("/api/users/user/exists/{userId}")
+    Boolean userExists(@PathVariable("userId") Long userId);
+}
+
+=== 7. FIX ALL ISSUES SCRIPT ===
+File not found
+
+
+=== 8. START ALL SERVICES SCRIPT ===
+#!/bin/bash
+
+echo "🚀 Starting Social Platform Services..."
+
+# Kill any existing services
+pkill -f "user-service" || true
+pkill -f "post-service" || true
+pkill -f "gateway-service" || true
+
+sleep 2
+
+echo "📦 Building services..."
+cd ~/dev-setup/social-platform-backend
+mvn clean package -DskipTests
+
+echo "🔧 Starting User Service..."
+cd user-service
+java -jar target/user-service-0.0.1-SNAPSHOT.jar &
+USER_PID=$!
+cd ..
+
+echo "⏳ Waiting for User Service to initialize database..."
+sleep 20
+
+echo "🔧 Starting Post Service..."
+cd post-service
+java -jar target/post-service-0.0.1-SNAPSHOT.jar &
+POST_PID=$!
+cd ..
+
+echo "⏳ Waiting for Post Service to start..."
+sleep 15
+
+echo "🔧 Starting Gateway Service..."
+cd gateway-service
+java -jar target/gateway-service-0.0.1-SNAPSHOT.jar &
+GATEWAY_PID=$!
+cd ..
+
+echo "⏳ Waiting for Gateway Service to start..."
+sleep 10
+
+echo "✅ Services started with PIDs:"
+echo "   User Service: $USER_PID"
+echo "   Post Service: $POST_PID"
+echo "   Gateway Service: $GATEWAY_PID"
+
+echo "🔍 Checking service health..."
+curl -s http://localhost:8081/actuator/health && echo " - User Service OK" || echo " - User Service FAILED"
+curl -s http://localhost:8083/actuator/health && echo " - Post Service OK" || echo " - Post Service FAILED"
+curl -s http://localhost:8082/actuator/health && echo " - Gateway Service OK" || echo " - Gateway Service FAILED"
+
+echo "🎉 All services are starting up! Use Ctrl+C to stop all services."
+
+# Wait for Ctrl+C
+trap "echo '🛑 Stopping all services...'; kill $USER_PID $POST_PID $GATEWAY_PID; exit" INT
+wait
+
+=== 9. COMPREHENSIVE TEST SCRIPT ===
+#!/bin/bash
+
+echo "🧪 Testing Social Platform System"
+
+BASE_URL="http://localhost:8082"
+
+echo "1. Testing User Registration..."
+REGISTER_RESPONSE=$(curl -s -X POST $BASE_URL/api/users/user/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"testuser","email":"test@example.com","password":"Password123!"}')
+echo "Registration: $REGISTER_RESPONSE"
+
+echo "2. Testing User Login..."
+LOGIN_RESPONSE=$(curl -s -X POST $BASE_URL/api/users/user/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"testuser","password":"Password123!"}')
+echo "Login: $LOGIN_RESPONSE"
+
+# Extract JWT token
+JWT_TOKEN=$(echo $LOGIN_RESPONSE | grep -o '"token":"[^"]*' | cut -d'"' -f4)
+
+if [ -n "$JWT_TOKEN" ]; then
+    echo "3. Testing Post Creation..."
+    CREATE_POST_RESPONSE=$(curl -s -X POST $BASE_URL/api/posts/posts \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer $JWT_TOKEN" \
+      -d '{"title":"Test Post","content":"This is a test post!"}')
+    echo "Create Post: $CREATE_POST_RESPONSE"
+    
+    echo "4. Testing Get Posts..."
+    GET_POSTS_RESPONSE=$(curl -s -X GET "$BASE_URL/api/posts/posts/user/1" \
+      -H "Authorization: Bearer $JWT_TOKEN")
+    echo "Get Posts: $GET_POSTS_RESPONSE"
+    
+    echo "5. Testing Feed..."
+    GET_FEED_RESPONSE=$(curl -s -X GET "$BASE_URL/api/posts/posts/feed" \
+      -H "Authorization: Bearer $JWT_TOKEN")
+    echo "Get Feed: $GET_FEED_RESPONSE"
+    
+    echo "6. Testing Follow User..."
+    FOLLOW_RESPONSE=$(curl -s -X POST "$BASE_URL/api/posts/posts/follow/2" \
+      -H "Authorization: Bearer $JWT_TOKEN")
+    echo "Follow User: $FOLLOW_RESPONSE"
+    
+    echo "✅ System test completed successfully!"
+else
+    echo "❌ Failed to get JWT token"
+fi
+
+=== 10. DATABASE MIGRATION V1 - USERS TABLE ===
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'USER',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);CREATE TABLE IF NOT EXISTS users (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'USER',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+=== 11. DATABASE MIGRATION V2 - POSTS TABLE ===
+CREATE TABLE IF NOT EXISTS posts (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id BIGINT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);CREATE TABLE IF NOT EXISTS posts (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id BIGINT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);CREATE TABLE posts (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id BIGINT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);CREATE TABLE posts (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id BIGINT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+=== 12. DATABASE MIGRATION V3 - USER PROFILES TABLE ===
+CREATE TABLE IF NOT EXISTS user_profiles (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id BIGINT NOT NULL,
+    bio VARCHAR(500),
+    profile_picture_url VARCHAR(255),
+    location VARCHAR(100),
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);CREATE TABLE IF NOT EXISTS user_profiles (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    user_id BIGINT NOT NULL,
+    bio VARCHAR(500),
+    profile_picture_url VARCHAR(255),
+    location VARCHAR(100),
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+=== 13. DATABASE MIGRATION V4 - FOLLOWS TABLE ===
+CREATE TABLE IF NOT EXISTS follows (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    follower_id BIGINT NOT NULL,
+    followed_id BIGINT NOT NULL,
+    CONSTRAINT fk_follower FOREIGN KEY (follower_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_followed FOREIGN KEY (followed_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT unique_follow UNIQUE (follower_id, followed_id)
+);CREATE TABLE IF NOT EXISTS follows (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    follower_id BIGINT NOT NULL,
+    followed_id BIGINT NOT NULL,
+    CONSTRAINT fk_follower FOREIGN KEY (follower_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_followed FOREIGN KEY (followed_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT unique_follow UNIQUE (follower_id, followed_id)
+);CREATE TABLE IF NOT EXISTS follows (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    follower_id BIGINT NOT NULL,
+    followed_id BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_follower FOREIGN KEY (follower_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_followed FOREIGN KEY (followed_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT unique_follow UNIQUE (follower_id, followed_id)
+);CREATE TABLE IF NOT EXISTS follows (
+    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    follower_id BIGINT NOT NULL,
+    followed_id BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_follower FOREIGN KEY (follower_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_followed FOREIGN KEY (followed_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT unique_follow UNIQUE (follower_id, followed_id)
+);
+
+=== ANALYSIS COMPLETE ===

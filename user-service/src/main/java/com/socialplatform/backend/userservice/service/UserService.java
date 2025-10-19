@@ -1,16 +1,22 @@
 package com.socialplatform.backend.userservice.service;
 
+import com.socialplatform.backend.userservice.dto.UserRegistrationRequest;
+import com.socialplatform.backend.userservice.dto.UserResponse;
 import com.socialplatform.backend.userservice.model.User;
 import com.socialplatform.backend.userservice.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Optional;
 
 @Service
+@Transactional
 public class UserService {
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
 
     @Autowired
     private UserRepository userRepository;
@@ -18,51 +24,45 @@ public class UserService {
     @Autowired
     private BCryptPasswordEncoder passwordEncoder;
 
-    // BCrypt methods for authentication
-    public User saveUser(User user) {
-        user.setPasswordHash(passwordEncoder.encode(user.getPasswordHash()));
-        if (user.getRole() == null || user.getRole().isEmpty()) {
-            user.setRole("USER");
+    public UserResponse registerUser(UserRegistrationRequest request) {
+        // Check for existing username
+        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+            logger.warn("Registration failed: Username {} already exists", request.getUsername());
+            throw new IllegalArgumentException("Username already exists");
         }
-        return userRepository.save(user);
+        
+        // Check for existing email
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            logger.warn("Registration failed: Email {} already exists", request.getEmail());
+            throw new IllegalArgumentException("Email already exists");
+        }
+
+        // Create and save new user
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setEmail(request.getEmail());
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setRole("USER");
+
+        User savedUser = userRepository.save(user);
+        logger.info("User registered successfully: {}", savedUser.getUsername());
+
+        return new UserResponse(savedUser.getId(), savedUser.getUsername(), 
+                              savedUser.getEmail(), savedUser.getRole(), savedUser.getCreatedAt());
     }
 
     public User findByUsername(String username) {
-        return userRepository.findByUsername(username).orElse(null);
+        Optional<User> user = userRepository.findByUsername(username);
+        return user.orElse(null);
     }
 
     public boolean checkPassword(String rawPassword, String encodedPassword) {
-        return passwordEncoder.matches(rawPassword, encodedPassword);
+        boolean matches = passwordEncoder.matches(rawPassword, encodedPassword);
+        logger.debug("Password check result: {}", matches ? "MATCH" : "NO MATCH");
+        return matches;
     }
 
-    // Existing methods
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
-    }
-
-    public Optional<User> getUserById(Long id) {
-        return userRepository.findById(id);
-    }
-
-    public User createUser(User user) {
-        return userRepository.save(user);
-    }
-
-    public User updateUser(Long id, User userDetails) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
-        
-        user.setUsername(userDetails.getUsername());
-        user.setEmail(userDetails.getEmail());
-        user.setPasswordHash(userDetails.getPasswordHash());
-        user.setRole(userDetails.getRole());
-        
-        return userRepository.save(user);
-    }
-
-    public void deleteUser(Long id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
-        userRepository.delete(user);
+    public Optional<User> findById(Long userId) {
+        return userRepository.findById(userId);
     }
 }
